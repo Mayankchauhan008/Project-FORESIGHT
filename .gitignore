@@ -5,7 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
-
+# Models
+models/
 # Distribution / packaging
 .Python
 build/
@@ -216,3 +217,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Generated data
+Data/cleaned/
+
+# Trained models
+models/
+
+# Images (optional)
+images/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
