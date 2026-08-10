@@ -234,3 +234,51 @@ images/
 # Python cache
 __pycache__/
 *.pyc
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Python cache
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Large datasets
+# Uncomment if datasets should not be pushed
+# data/raw/*.csv
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Environment variables
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+
+# Large generated datasets
+Data/processed/feature_engineered.csv
+Data/processed/cleanedcleaned_sales.csv
+Data/processed/final_dataset.csv

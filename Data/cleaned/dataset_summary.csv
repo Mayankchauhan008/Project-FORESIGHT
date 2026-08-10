@@ -1,7 +1,0 @@
-Dataset,Rows,Columns,Missing Values,Duplicates
-Sales,641843,9,159821,45
-Inventory,8735,7,0,0
-SKU,200,7,0,0
-Stores,50,5,0,0
-Customers,5000,7,0,0
-Promotions,33,6,0,0
