@@ -282,3 +282,7 @@ __pycache__/
 Data/processed/feature_engineered.csv
 Data/processed/cleanedcleaned_sales.csv
 Data/processed/final_dataset.csv
+# Large generated datasets
+Data/processed/cleaned_sales.csv
+Data/processed/feature_engineered.csv
+Data/processed/final_dataset.csv

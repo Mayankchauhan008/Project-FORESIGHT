@@ -2,284 +2,294 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-
-# ============================================================
-# COMMON STYLE
-# ============================================================
-
 from dashboard_utils import (
     apply_dashboard_style,
-    load_prediction_data,
-    load_model_summary,
-    find_product_column,
+    load_sales_data,
     chart_layout,
-    footer
+    footer,
+)
+
+st.set_page_config(
+    page_title="Demand Forecast",
+    page_icon="🔮",
+    layout="wide",
 )
 
 apply_dashboard_style()
 
+st.title("🔮 Demand Forecast")
 
-# ============================================================
-# PAGE HEADER
-# ============================================================
-
-st.title(
-    "📈 Demand Forecast"
-)
-
-st.write(
-    "Forecast future demand using trained machine learning models."
+st.caption(
+    "Historical demand, moving averages and a transparent baseline forecast."
 )
 
 st.divider()
 
+sales = load_sales_data()
 
-# ============================================================
-# LOAD DATA
-# ============================================================
+if sales.empty:
+    st.error("Sales data is unavailable.")
+    st.stop()
 
-prediction = load_prediction_data()
+sales = sales.dropna(
+    subset=["date"]
+).copy()
 
-model_summary = load_model_summary()
-
-
-if prediction.empty:
-
+if sales.empty:
     st.error(
-        "prediction_report.csv could not be loaded."
+        "A valid date column is required for demand forecasting."
+    )
+    st.stop()
+
+daily = (
+    sales
+    .groupby(
+        "date",
+        as_index=False
+    )["quantity"]
+    .sum()
+    .sort_values("date")
+)
+
+if daily.empty:
+    st.warning(
+        "No demand data is available."
+    )
+    st.stop()
+
+total_demand = float(
+    daily["quantity"].sum()
+)
+
+average_daily_demand = float(
+    daily["quantity"].mean()
+)
+
+maximum_daily_demand = float(
+    daily["quantity"].max()
+)
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.metric(
+        "📦 Total Demand",
+        f"{total_demand:,.0f}"
+    )
+
+with c2:
+    st.metric(
+        "📊 Avg Daily Demand",
+        f"{average_daily_demand:,.2f}"
+    )
+
+with c3:
+    st.metric(
+        "🚀 Peak Daily Demand",
+        f"{maximum_daily_demand:,.0f}"
+    )
+
+st.divider()
+
+valid_skus = []
+
+if "sku_id" in sales.columns:
+
+    valid_skus = sorted(
+        [
+            x
+            for x in sales["sku_id"]
+            .astype(str)
+            .unique()
+            if x.strip()
+            and x.lower() != "nan"
+        ]
+    )
+
+if valid_skus:
+
+    selected_sku = st.selectbox(
+        "🔍 Select SKU for detailed forecast",
+        ["All SKUs"] + valid_skus
+    )
+
+else:
+
+    selected_sku = "All SKUs"
+
+if selected_sku != "All SKUs":
+
+    filtered = sales[
+        sales["sku_id"]
+        .astype(str)
+        ==
+        selected_sku
+    ].copy()
+
+    sku_daily = (
+        filtered
+        .groupby(
+            "date",
+            as_index=False
+        )["quantity"]
+        .sum()
+        .sort_values("date")
+    )
+
+else:
+
+    sku_daily = daily.copy()
+
+if sku_daily.empty:
+
+    st.warning(
+        "No demand history is available for the selected SKU."
     )
 
     st.stop()
 
-
-# ============================================================
-# COLUMN DETECTION
-# ============================================================
-
-numeric_cols = prediction.select_dtypes(
-    include="number"
-).columns.tolist()
-
-
-product_col = find_product_column(
-    prediction
+st.subheader(
+    "📈 Historical Demand"
 )
 
-
-# ============================================================
-# KPIs
-# ============================================================
-
-forecast_records = len(
-    prediction
+fig = px.line(
+    sku_daily,
+    x="date",
+    y="quantity",
+    title=(
+        f"Daily Demand - SKU {selected_sku}"
+        if selected_sku != "All SKUs"
+        else "Daily Demand - All SKUs"
+    ),
 )
 
+fig.update_xaxes(
+    title="Date"
+)
 
-if numeric_cols:
+fig.update_yaxes(
+    title="Units"
+)
 
-    first_numeric = numeric_cols[0]
+chart_layout(
+    fig,
+    420
+)
 
-    average_forecast = pd.to_numeric(
-        prediction[first_numeric],
-        errors="coerce"
-    ).mean()
+st.plotly_chart(
+    fig,
+    width="stretch"
+)
 
-else:
-
-    average_forecast = 0
-
-
-c1, c2, c3, c4 = st.columns(4)
-
-
-with c1:
-
-    st.metric(
-        "🔮 Forecast Records",
-        f"{forecast_records:,}"
+sku_daily["7_Day_Moving_Average"] = (
+    sku_daily["quantity"]
+    .rolling(
+        7,
+        min_periods=1
     )
+    .mean()
+)
 
+st.subheader(
+    "📊 Demand + 7-Day Moving Average"
+)
 
-with c2:
+fig = px.line(
+    sku_daily,
+    x="date",
+    y=[
+        "quantity",
+        "7_Day_Moving_Average"
+    ],
+    title="Demand Trend",
+)
 
-    st.metric(
-        "📊 Numeric Features",
-        len(numeric_cols)
-    )
+chart_layout(
+    fig,
+    420
+)
 
-
-with c3:
-
-    st.metric(
-        "🤖 Models",
-        "2"
-    )
-
-
-with c4:
-
-    st.metric(
-        "📈 Avg Forecast Value",
-        f"{average_forecast:,.2f}"
-    )
-
+st.plotly_chart(
+    fig,
+    width="stretch"
+)
 
 st.divider()
 
-
-# ============================================================
-# PRODUCT FILTER
-# ============================================================
-
-filtered = prediction.copy()
-
-
-if product_col:
-
-    products = sorted(
-        filtered[product_col]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    if products:
-
-        selected_product = st.selectbox(
-            "🔎 Select Product / SKU",
-            ["All Products"] + products
-        )
-
-        if selected_product != "All Products":
-
-            filtered = filtered[
-                filtered[product_col]
-                .astype(str)
-                ==
-                selected_product
-            ]
-
-
-# ============================================================
-# FORECAST VISUALIZATION
-# ============================================================
-
-st.header(
-    "📈 Forecast Visualization"
+st.subheader(
+    "🔮 Simple 30-Day Baseline Forecast"
 )
 
-
-if not filtered.empty and numeric_cols:
-
-    x_candidates = list(
-        filtered.columns
-    )
-
-    x_col = st.selectbox(
-        "X-axis",
-        x_candidates
-    )
-
-    y_col = st.selectbox(
-        "Forecast Metric",
-        numeric_cols
-    )
-
-    try:
-
-        fig = px.line(
-            filtered,
-            x=x_col,
-            y=y_col,
-            markers=True,
-            title="Demand Forecast"
-        )
-
-        chart_layout(
-            fig,
-            450
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch"
-        )
-
-    except Exception:
-
-        st.warning(
-            "The selected columns cannot be plotted."
-        )
-
-
-st.divider()
-
-
-# ============================================================
-# MODEL PERFORMANCE
-# ============================================================
-
-st.header(
-    "🤖 Model Performance"
+recent_window = min(
+    7,
+    len(sku_daily)
 )
 
+recent_average = float(
+    sku_daily
+    .tail(recent_window)["quantity"]
+    .mean()
+)
 
-if not model_summary.empty:
+last_date = sku_daily["date"].max()
 
-    st.dataframe(
-        model_summary,
-        width="stretch"
+future_dates = pd.date_range(
+    start=(
+        last_date
+        +
+        pd.Timedelta(days=1)
+    ),
+    periods=30,
+    freq="D"
+)
+
+forecast = pd.DataFrame(
+    {
+        "date": future_dates,
+        "forecast_demand": recent_average
+    }
+)
+
+fig = px.line(
+    forecast,
+    x="date",
+    y="forecast_demand",
+    title="30-Day Baseline Forecast"
+)
+
+fig.update_yaxes(
+    title="Forecast Units"
+)
+
+chart_layout(
+    fig,
+    420
+)
+
+st.plotly_chart(
+    fig,
+    width="stretch"
+)
+
+f1, f2 = st.columns(2)
+
+with f1:
+
+    st.metric(
+        "📅 Forecast Daily Baseline",
+        f"{recent_average:,.2f}"
     )
 
-    model_numeric = model_summary.select_dtypes(
-        include="number"
-    ).columns.tolist()
+with f2:
 
-    if model_numeric:
-
-        metric = st.selectbox(
-            "Performance Metric",
-            model_numeric
-        )
-
-        fig = px.bar(
-            model_summary,
-            x=model_summary.columns[0],
-            y=metric,
-            title=f"Model Comparison — {metric}"
-        )
-
-        chart_layout(
-            fig,
-            400
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch"
-        )
-
-else:
-
-    st.info(
-        "Model summary file is not available."
+    st.metric(
+        "📦 Forecast 30-Day Units",
+        f"{recent_average * 30:,.0f}"
     )
 
-
-# ============================================================
-# FORECAST TABLE
-# ============================================================
-
-with st.expander(
-    "📋 View Forecast Data"
-):
-
-    st.dataframe(
-        filtered,
-        width="stretch",
-        height=450
-    )
-
+st.info(
+    "This page intentionally uses a transparent 7-day-average baseline. "
+    "It is not presented as a trained ML forecast."
+)
 
 footer()

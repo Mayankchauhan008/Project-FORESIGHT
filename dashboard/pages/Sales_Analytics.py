@@ -2,427 +2,334 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-
-# ============================================================
-# COMMON STYLE
-# ============================================================
-
 from dashboard_utils import (
     apply_dashboard_style,
     load_sales_data,
-    find_date_column,
-    find_sales_column,
-    find_quantity_column,
-    find_product_column,
-    find_store_column,
-    numeric_series,
+    get_channel_revenue,
+    get_top_products,
     chart_layout,
-    footer
+    footer,
+)
+
+st.set_page_config(
+    page_title="Sales Analytics",
+    page_icon="📊",
+    layout="wide",
 )
 
 apply_dashboard_style()
-
-
-# ============================================================
-# PAGE CONFIG
-# ============================================================
 
 st.title(
     "📊 Sales Analytics"
 )
 
-st.write(
-    "Analyze revenue, transactions, products and store performance."
+st.caption(
+    "Detailed analysis of retail sales performance."
 )
 
 st.divider()
 
-
-# ============================================================
-# LOAD DATA
-# ============================================================
-
 sales = load_sales_data()
 
-
 if sales.empty:
-
     st.error(
         "Sales data could not be loaded."
     )
-
     st.stop()
 
-
-# ============================================================
-# DETECT COLUMNS
-# ============================================================
-
-date_col = find_date_column(
-    sales
-)
-
-sales_col = find_sales_column(
-    sales
-)
-
-quantity_col = find_quantity_column(
-    sales
-)
-
-product_col = find_product_column(
-    sales
-)
-
-store_col = find_store_column(
-    sales
-)
-
-
-# ============================================================
-# DATE CONVERSION
-# ============================================================
-
-if date_col:
-
-    sales[date_col] = pd.to_datetime(
-        sales[date_col],
+revenue = float(
+    pd.to_numeric(
+        sales["dashboard_revenue"],
         errors="coerce"
     )
+    .fillna(0)
+    .sum()
+)
 
-
-# ============================================================
-# FILTERS
-# ============================================================
-
-with st.expander(
-    "🎛️ Filters"
-):
-
-    filtered = sales.copy()
-
-    if product_col:
-
-        product_values = sorted(
-            filtered[product_col]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
-
-        selected_products = st.multiselect(
-            "Product / SKU",
-            product_values
-        )
-
-        if selected_products:
-
-            filtered = filtered[
-                filtered[product_col]
-                .astype(str)
-                .isin(selected_products)
-            ]
-
-
-    if store_col:
-
-        store_values = sorted(
-            filtered[store_col]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
-
-        selected_stores = st.multiselect(
-            "Store",
-            store_values
-        )
-
-        if selected_stores:
-
-            filtered = filtered[
-                filtered[store_col]
-                .astype(str)
-                .isin(selected_stores)
-            ]
-
-
-# ============================================================
-# KPI
-# ============================================================
-
-if sales_col:
-
-    sales_values = numeric_series(
-        filtered,
-        sales_col
+quantity = float(
+    pd.to_numeric(
+        sales["quantity"],
+        errors="coerce"
     )
+    .fillna(0)
+    .sum()
+)
 
-    total_revenue = sales_values.sum()
+transactions = len(
+    sales
+)
 
-    average_transaction = sales_values.mean()
+average_transaction = (
+    revenue / transactions
+    if transactions
+    else 0
+)
 
-else:
+unique_skus = (
+    int(
+        sales["sku_id"]
+        .astype(str)
+        .nunique()
+    )
+    if "sku_id" in sales.columns
+    else 0
+)
 
-    total_revenue = 0
-
-    average_transaction = 0
-
-
-transactions = len(filtered)
-
-
-if quantity_col:
-
-    units_sold = numeric_series(
-        filtered,
-        quantity_col
-    ).sum()
-
-else:
-
-    units_sold = 0
-
-
-# ============================================================
-# KPI DISPLAY
-# ============================================================
-
-c1, c2, c3, c4 = st.columns(4)
-
+c1, c2, c3, c4, c5 = st.columns(5)
 
 with c1:
-
     st.metric(
-        "💰 Total Revenue",
-        f"₹{total_revenue:,.0f}"
+        "💰 Revenue",
+        f"₹{revenue:,.0f}"
     )
 
-
 with c2:
-
     st.metric(
         "🧾 Transactions",
         f"{transactions:,}"
     )
 
-
 with c3:
-
     st.metric(
-        "💵 Avg Transaction",
+        "📦 Units Sold",
+        f"{quantity:,.0f}"
+    )
+
+with c4:
+    st.metric(
+        "💳 Avg Transaction",
         f"₹{average_transaction:,.0f}"
     )
 
-
-with c4:
-
+with c5:
     st.metric(
-        "📦 Units Sold",
-        f"{units_sold:,.0f}"
+        "🛍️ SKUs",
+        f"{unique_skus:,}"
     )
-
 
 st.divider()
 
-
-# ============================================================
-# TABS
-# ============================================================
-
-tab1, tab2, tab3 = st.tabs(
-    [
-        "📈 Revenue Trend",
-        "🏆 Product Performance",
-        "🏪 Store Performance"
-    ]
-)
-
-
-# ============================================================
-# REVENUE TREND
-# ============================================================
-
-with tab1:
-
-    if date_col and sales_col:
-
-        trend = (
-            filtered
-            .dropna(subset=[date_col])
-            .groupby(date_col)[sales_col]
-            .sum()
-            .reset_index()
-        )
-
-        fig = px.line(
-            trend,
-            x=date_col,
-            y=sales_col,
-            markers=True,
-            title="Revenue Trend"
-        )
-
-        chart_layout(
-            fig,
-            450
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch"
-        )
-
-
-        monthly = filtered.copy()
-
-        monthly["Month"] = (
-            monthly[date_col]
-            .dt.to_period("M")
-            .astype(str)
-        )
-
-        monthly = (
-            monthly
-            .groupby("Month")[sales_col]
-            .sum()
-            .reset_index()
-        )
-
-        fig2 = px.bar(
-            monthly,
-            x="Month",
-            y=sales_col,
-            title="Monthly Revenue"
-        )
-
-        chart_layout(
-            fig2,
-            400
-        )
-
-        st.plotly_chart(
-            fig2,
-            width="stretch"
-        )
-
-    else:
-
-        st.warning(
-            "Date or sales column was not detected."
-        )
-
-
-# ============================================================
-# PRODUCT PERFORMANCE
-# ============================================================
-
-with tab2:
-
-    if product_col and sales_col:
-
-        product_data = (
-            filtered
-            .groupby(product_col)[sales_col]
-            .sum()
-            .reset_index()
-            .sort_values(
-                sales_col,
-                ascending=False
-            )
-            .head(15)
-        )
-
-        fig = px.bar(
-            product_data,
-            x=sales_col,
-            y=product_col,
-            orientation="h",
-            title="Top Products by Revenue"
-        )
-
-        chart_layout(
-            fig,
-            500
-        )
-
-        fig.update_layout(
-            yaxis={
-                "categoryorder": "total ascending"
-            }
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch"
-        )
-
-    else:
-
-        st.warning(
-            "Product or sales column was not detected."
-        )
-
-
-# ============================================================
-# STORE PERFORMANCE
-# ============================================================
-
-with tab3:
-
-    if store_col and sales_col:
-
-        store_data = (
-            filtered
-            .groupby(store_col)[sales_col]
-            .sum()
-            .reset_index()
-            .sort_values(
-                sales_col,
-                ascending=False
-            )
-            .head(15)
-        )
-
-        fig = px.bar(
-            store_data,
-            x=store_col,
-            y=sales_col,
-            title="Top Stores by Revenue"
-        )
-
-        chart_layout(
-            fig,
-            450
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch"
-        )
-
-    else:
-
-        st.warning(
-            "Store or sales column was not detected."
-        )
-
-
-# ============================================================
-# DATA TABLE
-# ============================================================
-
-with st.expander(
-    "📋 View Sales Data"
+if (
+    "date" in sales.columns
+    and sales["date"].notna().any()
 ):
 
-    st.dataframe(
-        filtered,
-        width="stretch",
-        height=400
+    daily = (
+        sales
+        .dropna(
+            subset=["date"]
+        )
+        .groupby(
+            "date",
+            as_index=False
+        )["dashboard_revenue"]
+        .sum()
+        .sort_values("date")
     )
 
+    st.subheader(
+        "📈 Daily Revenue"
+    )
+
+    fig = px.line(
+        daily,
+        x="date",
+        y="dashboard_revenue",
+        title="Revenue Trend",
+    )
+
+    fig.update_yaxes(
+        title="Revenue",
+        tickprefix="₹"
+    )
+
+    chart_layout(
+        fig,
+        420
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch"
+    )
+
+st.divider()
+
+left, right = st.columns(2)
+
+with left:
+
+    st.subheader(
+        "🛒 Revenue by Sales Channel"
+    )
+
+    channel = get_channel_revenue()
+
+    if channel.empty:
+
+        st.info(
+            "Sales-channel information unavailable."
+        )
+
+    else:
+
+        fig = px.bar(
+            channel,
+            x="channel",
+            y="dashboard_revenue",
+            title="Revenue by Sales Channel",
+            text="dashboard_revenue",
+        )
+
+        fig.update_traces(
+            texttemplate="₹%{text:,.0f}",
+            textposition="outside",
+        )
+
+        fig.update_yaxes(
+            tickprefix="₹"
+        )
+
+        chart_layout(
+            fig,
+            420
+        )
+
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
+
+with right:
+
+    st.subheader(
+        "📦 Units by Sales Channel"
+    )
+
+    if "channel" in sales.columns:
+
+        channel_quantity = (
+            sales
+            .groupby(
+                "channel",
+                as_index=False
+            )["quantity"]
+            .sum()
+            .sort_values(
+                "quantity",
+                ascending=False
+            )
+        )
+
+    else:
+
+        channel_quantity = pd.DataFrame()
+
+    if channel_quantity.empty:
+
+        st.info(
+            "No sales-channel quantity data available."
+        )
+
+    else:
+
+        fig = px.bar(
+            channel_quantity,
+            x="channel",
+            y="quantity",
+            title="Units Sold by Sales Channel",
+            text="quantity",
+        )
+
+        fig.update_traces(
+            textposition="outside"
+        )
+
+        chart_layout(
+            fig,
+            420
+        )
+
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
+
+st.divider()
+
+st.header(
+    "🏆 Top 20 Products"
+)
+
+top = get_top_products(
+    20
+)
+
+if top.empty:
+
+    st.info(
+        "No SKU-level sales data available."
+    )
+
+else:
+
+    st.dataframe(
+        top,
+        width="stretch",
+        hide_index=True
+    )
+
+    fig = px.bar(
+        top.head(10),
+        x="Revenue",
+        y="sku_id",
+        orientation="h",
+        title="Top 10 Revenue SKUs",
+        text="Revenue",
+    )
+
+    fig.update_traces(
+        texttemplate="₹%{text:,.0f}",
+        textposition="outside"
+    )
+
+    chart_layout(
+        fig,
+        420
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch"
+    )
+
+st.divider()
+
+st.header(
+    "🔍 Sales Data Quality"
+)
+
+q1, q2, q3 = st.columns(3)
+
+with q1:
+
+    st.metric(
+        "Valid Dates",
+        f"{sales['date'].notna().sum():,}"
+    )
+
+with q2:
+
+    st.metric(
+        "Positive Quantity Rows",
+        f"{(sales['quantity'] > 0).sum():,}"
+    )
+
+with q3:
+
+    st.metric(
+        "Positive Revenue Rows",
+        f"{(sales['dashboard_revenue'] > 0).sum():,}"
+    )
 
 footer()
