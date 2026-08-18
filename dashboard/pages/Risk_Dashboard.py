@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+from auth import (
+    require_login,
+    render_user_sidebar,
+)
+
 from dashboard_utils import (
     apply_dashboard_style,
     load_inventory_data,
@@ -10,6 +15,9 @@ from dashboard_utils import (
     chart_layout,
     footer,
 )
+
+require_login()
+render_user_sidebar()
 
 st.set_page_config(
     page_title="Risk Dashboard",

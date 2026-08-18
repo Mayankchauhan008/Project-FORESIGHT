@@ -9,7 +9,14 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from auth import (
+    is_authenticated,
+    render_user_sidebar,
+)
 
+from login_register import (
+    render_auth_page,
+)
 from dashboard_utils import (
     apply_dashboard_style,
     load_sales_data,
@@ -27,6 +34,28 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ============================================================
+# AUTHENTICATION GATE
+# ============================================================
+
+if not is_authenticated():
+
+    render_auth_page()
+
+    st.stop()
+
+
+# ============================================================
+# LOGGED-IN USER
+# ============================================================
+
+render_user_sidebar()
+
+
+# ============================================================
+# EXISTING FORESIGHT DASHBOARD
+# ============================================================
 
 apply_dashboard_style()
 

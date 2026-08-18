@@ -25,6 +25,10 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+from auth import (
+    require_login,
+    render_user_sidebar,
+)
 
 from dashboard_utils import (
     apply_dashboard_style,
@@ -35,7 +39,8 @@ from dashboard_utils import (
     footer,
 )
 
-
+require_login()
+render_user_sidebar()
 # ============================================================
 # PAGE CONFIG
 # ============================================================
