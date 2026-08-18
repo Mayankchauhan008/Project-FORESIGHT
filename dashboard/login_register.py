@@ -814,9 +814,9 @@ def render_auth_page():
                             message
                         )
 
-                        st.session_state[
-                            "auth_mode"
-                        ] = "Login"
+                        # st.session_state[
+                        #     "auth_mode"
+                        # ] = "Login"
 
                         st.rerun()
 
